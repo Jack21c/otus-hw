@@ -1,9 +1,11 @@
 package main
 
-import "log"
+import (
+	"fmt"
+
+	"golang.org/x/example/hello/reverse"
+)
 
 func main() {
-	// Place your code here.
-
-	log.Println("Hello, OTUS!")
+	fmt.Print(reverse.String("Hello, OTUS!"))
 }
