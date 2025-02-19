@@ -2,7 +2,7 @@ run:
   tests: true
   build-tags:
     - bench
-    - !bench
+    - "!bench"
 
 linters-settings:
   funlen:
