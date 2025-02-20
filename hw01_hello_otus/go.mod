@@ -1,4 +1,4 @@
-module github.com/Jack21c/hw01_hello_otus
+module github.com/Jack21c/otus-hw/hw01_hello_otus
 
 go 1.22
 
