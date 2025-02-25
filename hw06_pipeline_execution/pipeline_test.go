@@ -29,7 +29,6 @@ func TestPipeline(t *testing.T) {
 				for v := range in {
 					time.Sleep(sleepPerStage)
 					out <- f(v)
-					// fmt.Printf("Stage number UNKNOWN: %v\n", v)
 				}
 			}()
 			return out
