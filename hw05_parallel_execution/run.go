@@ -58,13 +58,12 @@ func routine(
 ) {
 	for counter.Load() < m {
 		f, ok := <-taskChan
-		if ok {
-			err := f()
-			if err != nil {
-				counter.Add(1)
-			}
-		} else {
+		if !ok {
 			break
+		}
+		err := f()
+		if err != nil {
+			counter.Add(1)
 		}
 	}
 }
