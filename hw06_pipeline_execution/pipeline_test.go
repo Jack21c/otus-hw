@@ -16,7 +16,7 @@ const (
 	fault         = sleepPerStage / 2
 )
 
-var isFullTesting = false
+var isFullTesting = true
 
 //nolint:funlen
 func TestPipeline(t *testing.T) {
