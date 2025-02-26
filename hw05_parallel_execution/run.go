@@ -6,80 +6,63 @@ import (
 	"sync/atomic"
 )
 
-var (
-	ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
-	ErrTasksFinished       = errors.New("all tasks finished")
-)
+var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
 
 type Task func() error
 
 // Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
 func Run(tasks []Task, n, m int) error {
-	errChan := make(chan error)
-	var allowed atomic.Bool
-	allowed.Store(true)
-	taskChan := toChan(tasks)
-
+	var counter atomic.Int32
 	wg := new(sync.WaitGroup)
+	taskChan := toChan(tasks, wg)
+
+	if m <= 0 {
+		m = len(tasks) + 1
+	}
+
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			routine(taskChan, errChan, &allowed)
+			routine(taskChan, &counter, int32(m))
 		}()
 	}
 
-	var err error
-	countErrors := 0
-	countFinished := 0
-	for countFinished < n {
-		err = <-errChan
-		if err != nil {
-			if errors.Is(err, ErrTasksFinished) {
-				allowed.Store(false)
-				countFinished++
-				continue
-			}
-			if !allowed.Load() {
-				continue
-			}
-			countErrors++
-			if m > 0 && countErrors >= m { // If m <= 0 then errors ignored
-				allowed.Store(false)
-			}
-		}
-	}
-
 	wg.Wait()
-	if m > 0 && countErrors >= m {
+	if counter.Load() >= int32(m) {
 		return ErrErrorsLimitExceeded
 	}
 	return nil
 }
 
-func toChan(s []Task) chan Task {
+func toChan(s []Task, wg *sync.WaitGroup) chan Task {
 	ch := make(chan Task, len(s))
-	for _, t := range s {
-		ch <- t
-	}
-	close(ch)
+	wg.Add(1)
+	go func(ch chan Task, s []Task) {
+		defer wg.Done()
+		for _, t := range s {
+			ch <- t
+		}
+		close(ch)
+	}(ch, s)
+
 	return ch
 }
 
 func routine(
 	taskChan chan Task,
-	errChan chan error,
-	allowed *atomic.Bool,
+	counter *atomic.Int32,
+	m int32,
 ) {
-	localCounter := 0
-	for allowed.Load() {
-		localCounter++
+	for counter.Load() < m {
 		f, ok := <-taskChan
 		if ok {
-			errChan <- f()
+			err := f()
+			if err != nil {
+				counter.Add(1)
+			}
 		} else {
 			break
 		}
 	}
-	errChan <- ErrTasksFinished
 }
