@@ -11,6 +11,8 @@ var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
 type Task func() error
 
 // Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
+//
+//nolint:gosec
 func Run(tasks []Task, n, m int) error {
 	var counter atomic.Int32
 	wg := new(sync.WaitGroup)
