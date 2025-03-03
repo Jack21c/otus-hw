@@ -1,9 +1,5 @@
 package hw06pipelineexecution
 
-import (
-	"sync"
-)
-
 type (
 	In  = <-chan interface{}
 	Out = In
@@ -12,12 +8,12 @@ type (
 
 type Stage func(in In) (out Out)
 
+//nolint:revive
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
 	mapOut := make(map[int]Bi, len(stages))
 	for i := 0; i < len(stages); i++ {
 		mapOut[i] = make(Bi)
 	}
-	wg := sync.WaitGroup{}
 
 	for i, stage := range stages {
 		var inLocal In
@@ -26,24 +22,21 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 		} else {
 			inLocal = mapOut[i-1]
 		}
-		wg.Add(1)
+
 		go func(in In, stage Stage, out Bi) {
-			defer wg.Done()
-			open := true
+		loop:
 			for v := range stage(in) {
-				if done != nil {
-					if _, ok := <-done; !ok {
-						if open {
-							open = false
-							close(out)
-						}
-						continue
+				select {
+				case _, ok := <-done:
+					if !ok {
+						break loop
 					}
+				default:
+					out <- v
 				}
-				out <- v
 			}
-			if open {
-				close(out)
+			close(out)
+			for range stage(in) {
 			}
 		}(inLocal, stage, mapOut[i])
 	}
