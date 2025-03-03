@@ -16,13 +16,12 @@ type Task func() error
 func Run(tasks []Task, n, m int) error {
 	var counter atomic.Int32
 	wg := new(sync.WaitGroup)
-	taskChan := toChan(tasks, wg)
-
 	if m <= 0 {
 		m = len(tasks) + 1
 	}
+	taskChan := toChan(tasks, &counter, int32(m), wg)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -37,16 +36,24 @@ func Run(tasks []Task, n, m int) error {
 	return nil
 }
 
-func toChan(s []Task, wg *sync.WaitGroup) chan Task {
-	ch := make(chan Task, len(s))
+func toChan(
+	s []Task,
+	counter *atomic.Int32,
+	m int32,
+	wg *sync.WaitGroup,
+) chan Task {
+	ch := make(chan Task)
 	wg.Add(1)
-	go func(ch chan Task, s []Task) {
+	go func() {
 		defer wg.Done()
 		for _, t := range s {
+			if counter.Load() >= m {
+				break
+			}
 			ch <- t
 		}
 		close(ch)
-	}(ch, s)
+	}()
 
 	return ch
 }
@@ -56,9 +63,8 @@ func routine(
 	counter *atomic.Int32,
 	m int32,
 ) {
-	for counter.Load() < m {
-		f, ok := <-taskChan
-		if !ok {
+	for f := range taskChan {
+		if counter.Load() >= m {
 			break
 		}
 		err := f()
